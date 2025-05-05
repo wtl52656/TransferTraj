@@ -1,0 +1,73 @@
+[
+    {
+        "save_name": "test_moe",
+        "dataset": {
+            "train_traj_df": "./samples/small_chengdu.h5",
+            "test_traj_df": "./samples/small_chengdu.h5",
+            "poi_df": "./samples/small_chengdu.h5",
+            "road_df": "./samples/small_chengdu.h5",
+            "poi_embed": "./samples/small_chengdu_poi_embed.npy",
+            "road_embed": "./samples/small_chengdu_road_embed.npy"
+        },
+        "transfertraj": {
+            "embed_size": 64,
+            "d_model": 128,
+            "rafee_layer": 2,
+            "poi_dist": 100,
+            "rn_dist": 100
+        },
+        "pretrain": {
+            "load": false,
+            "save": true,
+            "dataloader": {
+                "batch_size": 16,
+                "shuffle": true,
+                "num_workers": 8
+            },
+            "padder": {
+                "span_div_ratio": 0.2,
+                "span_mask_ratio": 0.4,
+                "feature_mask_prob":0.2
+            },
+            "config": {
+                "num_epoch": 2,
+                "lr": 1e-3
+            }
+        },
+        "finetune": {
+            "load": true,
+            "save": true,
+            "dataloader": {
+                "batch_size": 16,
+                "shuffle": true,
+                "num_workers": 8
+            },
+            "padder": {
+                "name": "tp",
+                "params": {
+                    "pred_len": 5,
+                    "eval": false
+                }
+            },
+            "config": {
+                "num_epoch": 2,
+                "lr": 1e-3
+            }
+        },
+        "test": {
+            "save": true,
+            "dataloader": {
+                "batch_size": 16,
+                "num_workers": 8
+            },
+            "padder": {
+                "name": "tp",
+                "params": {
+                    "pred_len": 5,
+                    "eval": true
+                }
+            },
+            "config": {}
+        }
+    }
+]
