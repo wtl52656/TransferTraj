@@ -270,57 +270,7 @@ class TpPadder:
         first_point = torch.tensor(first_point).float()
 
         return input_tensor, output_tensor, pos_tensor, first_point
-        
-class TpPadder_1:
-    """Collate function for the Trajectory Prediction (TP) task.
-    """
-
-    def __init__(self, pred_len, eval=True):
-        self.pred_len = pred_len
-        self.eval = eval
-
-    def __call__(self, raw_batch):
-        """Padding the provided raw batch into trajectory feature tensors.
-        Refer to PretrainPadder for detailed definition on the features.
-        """
-        input_batch, output_batch, pos_batch = [], [], []
-        for traj in raw_batch:
-            traj_feats = traj[[X_COL, Y_COL, T_COL, DT_COL]].to_numpy()  # (L, F)
-
-            input_row = traj_feats[:-self.pred_len]
-            input_row = np.stack([input_row, np.ones_like(input_row) * KNOWN_TOKEN], -1)  # (L, F, 2)
-            input_row = np.concatenate([input_row, repeat(np.array([FEATURE_PAD, MASK_TOKEN]),
-                                                          'a -> 1 F a', F=input_row.shape[1])])
-            input_batch.append(input_row)
-
-            output_row = traj_feats[-self.pred_len:]
-            output_row = np.stack([output_row, np.ones_like(output_row) * UNKNOWN_TOKEN], -1)
-            output_batch.append(output_row)
-
-            pos_batch.append(np.stack([np.arange(input_row.shape[0]), np.zeros((input_row.shape[0]))], -1))  # (L, 2)
-
-        input_batch, output_batch, pos_batch = pad_batch_3d(input_batch), \
-            pad_batch_3d(output_batch), pad_batch_2d(pos_batch)  # (B, L_in/out, F, 2), (B, L_in, 2)
-
-        input_tensor = torch.from_numpy(
-            np.concatenate([input_batch,
-                            repeat(np.array([FEATURE_PAD, START_TOKEN]), 'a -> B 1 F a',
-                                   B=input_batch.shape[0], F=input_batch.shape[2])], axis=1)).float()
-        if not self.eval:
-            input_tensor = torch.cat([input_tensor, torch.from_numpy(output_batch).float()], dim=1)
-        output_tensor = torch.from_numpy(
-            np.concatenate([input_batch, output_batch,
-                            repeat(np.array([FEATURE_PAD, END_TOKEN]), 'a -> B 1 F a',
-                                   B=input_batch.shape[0], F=input_batch.shape[2])], axis=1)).float()
-        pos_tensor = torch.from_numpy(
-            np.concatenate([pos_batch,
-                            np.stack([repeat(np.max(pos_batch, axis=1)[..., 0], 'B -> B L', L=self.pred_len+1),
-                                      repeat(np.arange(1, self.pred_len+2), 'L -> B L', B=input_batch.shape[0])],
-                                     axis=-1)], axis=1)).long()
-
-        return input_tensor, output_tensor, pos_tensor
-
-
+     
 class TrajTtePadder:
     """Collate function for the Trajectory-based TTE Task.
     """

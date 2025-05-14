@@ -1,6 +1,6 @@
 [
     {
-        "save_name": "test_moe",
+        "save_name": "test",
         "dataset": {
             "train_traj_df": "./samples/small_chengdu.h5",
             "test_traj_df": "./samples/small_chengdu.h5",

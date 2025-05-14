@@ -3,7 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 from einops import rearrange, repeat
 
-from models.encode import PositionalEncode, FourierEncode, RAFEE_Encoder
+from models.encode import PositionalEncode, FourierEncode, RTTE_Encoder
 from data import KNOWN_TOKEN, UNKNOWN_TOKEN, PAD_TOKEN, ST_MAP, coord_transform_GPS_UTM
 import numpy as np
 
@@ -66,7 +66,7 @@ class TransferTraj(nn.Module):
         #     nn.TransformerEncoderLayer(d_model=d_model, nhead=8, dim_feedforward=256, batch_first=True),
         #     num_layers=2)
 
-        self.seq_model = RAFEE_Encoder(d_model, layers=rafee_layer)
+        self.seq_model = RTTE_Encoder(d_model, layers=rafee_layer)
 
         # Prediction modules.
         self.spatial_pred_layer = nn.Sequential(nn.Linear(d_model, 2))
@@ -228,58 +228,6 @@ class TransferTraj(nn.Module):
         spatial_step, temporal_token_step, token_step = pred_spatial[:, -1:], \
             pred_temporal_token[:, -1:], pred_token[:, -1:]
 
-        # all_norm_coord = input_seq[:, :, S_COLS, 0]  # (B, L, 2)
-        # for i in range(L - L_in):
-        #     positions_step = positions[:, L_in+i:L_in+i+1]
-
-        #     # 对于输入使用teacher forcing策略
-        #     using_truth = np.random.rand() < teacher_ratio
-        #     if using_truth:
-        #         curr_truth_loc = L_in + i
-        #         spatial_step = target_spatial[:, curr_truth_loc: curr_truth_loc+1]
-        #         temporal_token_step = target_temp_token[:, curr_truth_loc: curr_truth_loc + 1]
-        #         token_step = target_token[:, curr_truth_loc:curr_truth_loc+1]
-        #     modal_h_step, norm_coord = self.cal_modal_h(spatial_step, temporal_token_step, token_step, positions_step)  #单步模态编码
-        #     modal_h = torch.cat([modal_h, modal_h_step], 1)  # 将预测出来的这个模态信息和之前的模态拼接起来
-        #     all_norm_coord = torch.cat([all_norm_coord, norm_coord], 1)  #将下一步预测的坐标拿来，计算RoPE
-
-        #     L_cur = L_in + i + 1
-        #     causal_mask = gen_causal_mask(L_cur).to(input_seq.device)
-        #     mem_seq = self.seq_model(modal_h, all_norm_coord, mask=causal_mask, src_key_padding_mask=batch_mask[:, :L_cur])
-        #     spatial_step, temporal_token_step, pred_token_step, token_step = self.pred(mem_seq[:, -1:], return_raw=False)
-            
-        #     pred_spatial = torch.cat([pred_spatial, spatial_step], 1)
-        #     pred_temporal_token = torch.cat([pred_temporal_token, temporal_token_step], 1)
-        #     pred_token = torch.cat([pred_token, token_step], 1)
-        #     pred_token_dist = torch.cat([pred_token_dist, pred_token_step], 1)
-
-        # for i in range(L_tgt - L_in):
-        #     positions_step = positions[:, L_in+i-1:L_in+i]
-        #     modal_h_step, norm_coord = self.cal_modal_h(spatial_step, temporal_token_step, token_step, positions_step)  #不归一化
-        #     modal_h = torch.cat([modal_h, modal_h_step], 1)
-        #     all_norm_coord = torch.cat([all_norm_coord, norm_coord], 1)
-
-        #     L_cur = L_in + i + 1
-
-        #     causal_mask = gen_causal_mask(L_cur).to(input_seq.device)
-        #     mem_seq = self.seq_model(modal_h, all_norm_coord, mask=causal_mask, src_key_padding_mask=batch_mask[:, :L_cur])
-
-        #     spatial_step, temporal_token_step, token_step = self.pred(mem_seq[:, -1:], return_raw=False)
-
-        #     pred_spatial = torch.cat([pred_spatial, spatial_step], 1)
-        #     pred_temporal_token = torch.cat([pred_temporal_token, temporal_token_step], 1)
-        #     pred_token = torch.cat([pred_token, token_step], 1)
-
-        # print(pred_spatial)
-        # print(target_spatial)
-        # print(torch.isnan(pred_spatial).any().item(), torch.isnan(target_spatial).any().item() )
-
-        # spatial_loss = geo_distance(pred_spatial, target_spatial)
-        # spatial_loss = masked_mean(spatial_loss, feature_mask[..., 0])
-        # print(pred_spatial)
-        # print(target_spatial)
-        # print(target_spatial.shape)
-        # exit()
         spatial_loss = F.mse_loss(pred_spatial, target_spatial, reduction='none')
         # print(spatial_loss)
         spatial_loss = masked_mean(spatial_loss, feature_mask[..., 0].unsqueeze(-1))
@@ -320,23 +268,7 @@ class TransferTraj(nn.Module):
         spatial_step, temporal_token_step, token_step = pred_spatial[:, -1:], \
             pred_temporal_token[:, -1:], pred_token[:, -1:]
         all_norm_coord = input_seq[:, :, S_COLS, 0]  # (B, L, 2)
-        for i in range(L_tgt - L_in):
-            positions_step = positions[:, L_in+i : L_in+i+1]
-            modal_h_step, norm_coord = self.cal_modal_h(spatial_step, temporal_token_step, token_step, positions_step)  #不归一化
-            modal_h = torch.cat([modal_h, modal_h_step], 1)
-            all_norm_coord = torch.cat([all_norm_coord, norm_coord], 1)
-
-            L_cur = L_in + i + 1
-
-            causal_mask = gen_causal_mask(L_cur).to(input_seq.device)
-            mem_seq = self.seq_model(modal_h, all_norm_coord, mask=causal_mask, src_key_padding_mask=batch_mask[:, :L_cur])
-
-            spatial_step, temporal_token_step, _, token_step = self.pred(mem_seq[:, -1:], return_raw=False)
-
-            pred_spatial = torch.cat([pred_spatial, spatial_step], 1)
-            pred_temporal_token = torch.cat([pred_temporal_token, temporal_token_step], 1)
-            pred_token = torch.cat([pred_token, token_step], 1)
-
+        
         target_spatial = target_seq[..., S_COLS, 0]  # (B, L, 2)
         target_temp_token = tokenize_timestamp(target_seq[:, :, T_COLS, 0])
         target_token = target_seq[..., [S_COLS[0], T_COLS[0]], 1].long()  # (B, L, 2)

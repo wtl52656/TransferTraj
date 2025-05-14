@@ -78,9 +78,9 @@ class Expert(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-class SparseMoE(nn.Module):
+class SCMoE(nn.Module):
     def __init__(self, n_embed, num_experts=8, top_k=4):
-        super(SparseMoE, self).__init__()
+        super(SCMoE, self).__init__()
         self.router = NoisyTopkRouter(n_embed, num_experts, top_k)
         self.experts = nn.ModuleList([Expert(n_embed) for _ in range(num_experts)])
         self.top_k = top_k
@@ -238,7 +238,7 @@ class RoPE_Attention_float(nn.Module):
 
 
 
-class RAFEE_Encoder(nn.Module):
+class RTTE_Encoder(nn.Module):
     def __init__(self, dim, layers, max_seq_len = 10000):
         super().__init__()
         self.dim = dim
@@ -247,7 +247,7 @@ class RAFEE_Encoder(nn.Module):
 
         self.max_seq_len = max_seq_len #轨迹的最大长度
 
-        self.layers = nn.ModuleList([RAFEE_Encoder_layer(dim) 
+        self.layers = nn.ModuleList([RTTE_Encoder_layer(dim) 
                                      for _ in range(layers)])
         
     
@@ -259,7 +259,7 @@ class RAFEE_Encoder(nn.Module):
             x = layer(x, norm_coord, mask, src_key_padding_mask)
         return x
 
-class RAFEE_Encoder_layer(nn.Module):
+class RTTE_Encoder_layer(nn.Module):
     def __init__(self, dim, max_seq_len=10000):
         super().__init__()
 
@@ -279,7 +279,7 @@ class RAFEE_Encoder_layer(nn.Module):
             nn.Linear(dim, dim)
         )
 
-        self.MoE_fc = SparseMoE(dim)
+        self.MoE_fc = SCMoE(dim)
         
         self.fc_norm = nn.LayerNorm(dim)
         self.RoPE_Attention_float = RoPE_Attention_float(dim)
