@@ -283,11 +283,6 @@ class TransferTraj(nn.Module):
         pred_spatial = pred_spatial.cpu().numpy()
         target_spatial = target_spatial.cpu().numpy()
 
-        # print(pred_spatial.shape)
-        # print(target_spatial.shape)
-        # print(first_point.shape)
-        # exit()
-        # pred_spatial = pred_spatial + 
         pred_spatial = coord_transform_GPS_UTM(pred_spatial, self.UTM_region, origin_coord="utm")
         target_spatial = coord_transform_GPS_UTM(target_spatial, self.UTM_region, origin_coord="utm")
 
