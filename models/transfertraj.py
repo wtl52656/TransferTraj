@@ -90,7 +90,7 @@ class TransferTraj(nn.Module):
         mem_seq = self.seq_model(modal_h, norm_coord, mask=causal_mask, src_key_padding_mask=batch_mask)
         return modal_h, mem_seq
 
-    def cal_modal_h(self, spatial, temporal_token, token, positions, first_point, K=3):
+    def cal_modal_h(self, spatial, temporal_token, token, positions, first_point):
         """Calculate modal hidden states with the given features.
 
         Args:
